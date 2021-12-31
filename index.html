@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <style>
+            html {
+                margin: 0;
+                padding: 0;
+                height: 100%;
+            }
+            body {
+                margin: 0;
+                padding: 0;
+                height: 100%;
+                overflow: hidden;
+            }
+            #canvas {
+                margin: auto;
+                display: block;
+            }
+            #settings {
+                height: 80px;
+                padding: 15px;
+                border-bottom: 1px solid;
+                box-sizing: border-box;
+            }
+        </style>
+    </head>
+    <body>
+        <div id="settings">
+            <input type="number" id="inputA" value="7" />
+            <input type="number" id="inputB" value="3" />
+            <input type="number" id="ratio" min="0" max="100" value="80" />
+            <label><input type="checkbox" checked id="drawOuter" />Outer circle</label>
+            <label><input type="checkbox" checked id="drawInner" />Inner circles</label>
+            <label><input type="checkbox" checked id="drawStar" />Star</label>
+            <label><input type="checkbox" checked id="drawLarge" />Larger polygons</label>
+            <label><input type="checkbox" checked id="drawSmall" />Smaller polygons</label>
+        </div>
+        <canvas id="canvas"></canvas>
+        <script>
+            let canvas;
+            let size;
+            let parameterA = 7;
+            let parameterB = 3;
+            let ratio = 80;
+            let drawOuter = true; 
+            let drawInner = true;
+            let drawStar  = true;
+            let drawLarge = true;
+            let drawSmall = true;
+
+            // Rendering parameters
+            const padding = 20;
+            const pointSize = 5;
+
+            /*
+                Code for managing inputs and filling the entire screen
+            */
+            function resize() {
+                size = Math.min(document.body.clientWidth, document.body.clientHeight - 80);
+                canvas.width = size;
+                canvas.height = size;
+            }
+            window.addEventListener("resize", resize);
+            
+            function updateSettings() {
+                parameterA = Number(document.getElementById("inputA").value);
+                parameterB = Number(document.getElementById("inputB").value);
+                ratio = Number(document.getElementById("ratio").value);
+                drawOuter = document.getElementById("drawOuter").checked;
+                drawInner = document.getElementById("drawInner").checked;
+                drawStar = document.getElementById("drawStar").checked;
+                drawLarge = document.getElementById("drawLarge").checked;
+                drawSmall = document.getElementById("drawSmall").checked;
+            }
+            document.getElementById("inputA").addEventListener("change", updateSettings);
+            document.getElementById("inputB").addEventListener("change", updateSettings);
+            document.getElementById("ratio").addEventListener("change", updateSettings);
+            document.getElementById("drawOuter").addEventListener("change", updateSettings);
+            document.getElementById("drawInner").addEventListener("change", updateSettings);
+            document.getElementById("drawStar").addEventListener("change", updateSettings);
+            document.getElementById("drawLarge").addEventListener("change", updateSettings);
+            document.getElementById("drawSmall").addEventListener("change", updateSettings);
+
+            window.addEventListener("load", () => {
+                canvas = document.getElementById("canvas");
+                window.requestAnimationFrame(render);
+                updateSettings();
+                resize();
+            });
+
+            /*
+                Code for actually rendering the shapes
+            */
+            function render(t)
+            {
+                t = t / 2000;
+                let ctx = canvas.getContext("2d");
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                ctx.strokeStyle = "black";
+                ctx.lineWidth = 2;
+
+                /*
+                    Draw the outside circle
+                */
+                let outerRadius = (size - 2 * padding) * 0.5;
+                if (drawOuter) {
+                    ctx.beginPath();
+                    ctx.arc(padding + outerRadius, padding + outerRadius, outerRadius, 0, 2 * Math.PI);
+                    ctx.stroke();
+                }
+                /*
+                    Draw the inner circle
+                */
+                let innerRadius = outerRadius * parameterB / parameterA;
+                let rotationRatio = outerRadius / innerRadius - 1;
+                let numCircles = parameterA - parameterB;
+                if (drawInner) {
+                    for (let i = 0; i < numCircles; i++) {
+                        ctx.beginPath();
+                        ctx.arc(
+                            padding + outerRadius + Math.cos(t + i * Math.PI * 2 / numCircles) * (outerRadius - innerRadius),
+                            padding + outerRadius + Math.sin(t + i * Math.PI * 2 / numCircles) * (outerRadius - innerRadius),
+                            innerRadius,
+                            0,
+                            2 * Math.PI
+                        );
+                        ctx.stroke();
+                    }
+                }
+
+                /*
+                    Draw the points
+                */
+                let points = [];
+                for (let i = 0; i < numCircles; i++) {
+                for (let j = 0; j < parameterB; j++) {
+                        points[i * parameterB + j] = {
+                            x: padding + outerRadius + Math.cos(t + i * Math.PI * 2 / numCircles) * (outerRadius - innerRadius)
+                                + Math.cos(-t * rotationRatio + j * Math.PI * 2 / parameterB) * innerRadius * ratio / 100,
+                            y: padding + outerRadius + Math.sin(t + i * Math.PI * 2 / numCircles) * (outerRadius - innerRadius)
+                                + Math.sin(-t * rotationRatio + j * Math.PI * 2 / parameterB) * innerRadius * ratio / 100,
+                        };
+                        ctx.beginPath();
+                        ctx.arc(points[i * parameterB + j].x, points[i * parameterB + j].y, pointSize, 0, Math.PI * 2);
+                        ctx.fill();
+                    }
+                }
+
+                /*
+                    Draw the path of the points (the star)
+                */
+                if (drawStar) {
+                    ctx.beginPath();
+                    for (let i = 0; i < Math.PI * 2 * numCircles; i += 0.1)
+                    {
+                        let x = padding + outerRadius + Math.cos(i / rotationRatio) * (outerRadius - innerRadius)
+                                    + Math.cos(-i) * innerRadius * ratio / 100;
+                        let y = padding + outerRadius + Math.sin(i / rotationRatio) * (outerRadius - innerRadius)
+                                    + Math.sin(-i) * innerRadius * ratio / 100;
+                        
+                        if (i == 0) {
+                            ctx.moveTo(x, y);
+                        } else {
+                            ctx.lineTo(x, y);
+                        }
+                    }
+                    ctx.strokeStyle = "orange";
+                    ctx.stroke();
+                }
+
+                /*
+                    Draw the larger polygons
+                */
+                if (drawLarge) {
+                    for (let i = 0; i < parameterB; i++) {
+                        ctx.beginPath();
+                        ctx.moveTo(points[i].x, points[i].y);
+                        for (let j = 0; j < numCircles; j++) {
+                            ctx.lineTo(points[i + parameterB * j].x, points[i + parameterB * j].y);
+                        }
+                        ctx.lineTo(points[i].x, points[i].y);
+                        ctx.strokeStyle = "green";
+                        ctx.stroke();
+                    }
+                }
+
+                /*
+                    Draw the smaller polygons
+                */
+                if (drawSmall) {
+                    for (let i = 0; i < numCircles; i++) {
+                        ctx.beginPath();
+                        ctx.moveTo(points[i * parameterB].x, points[i * parameterB].y);
+                        for (let j = 1; j < parameterB; j++) {
+                            ctx.lineTo(points[i * parameterB + j].x, points[i * parameterB + j].y);
+                        }
+                        ctx.lineTo(points[i * parameterB].x, points[i * parameterB].y);
+                        ctx.strokeStyle = "blue";
+                        ctx.stroke();
+                    }
+                }
+
+                window.requestAnimationFrame(render);
+            }
+        </script>
+    </body>
+</html>
